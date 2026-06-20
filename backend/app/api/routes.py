@@ -1,6 +1,10 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.parser import parse_resume
-from app.schemas.resume import ResumeUploadResponse
+from app.services.ai_service import analyze_resume_vs_jd
+from app.schemas.resume import ResumeUploadResponse, AnalyzeRequest, AnalyzeResponse
+from app.core.database import get_db
+from app.models import ResumeAnalysis
 
 router = APIRouter()
 
@@ -29,4 +33,34 @@ async def upload_resume(file: UploadFile = File(...)):
         filename=file.filename,
         extracted_text=extracted_text,
         character_count=len(extracted_text)
+    )
+
+
+@router.post("/resume/analyze", response_model=AnalyzeResponse)
+async def analyze_resume(payload: AnalyzeRequest, db: AsyncSession = Depends(get_db)):
+    if not payload.resume_text.strip() or not payload.job_description.strip():
+        raise HTTPException(status_code=400, detail="Resume text and job description cannot be empty")
+
+    try:
+        result = analyze_resume_vs_jd(payload.resume_text, payload.job_description)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
+
+    analysis = ResumeAnalysis(
+        resume_filename="uploaded_resume",
+        resume_text=payload.resume_text,
+        job_description=payload.job_description,
+        match_score=result["score"],
+        matched_keywords=result["matched_keywords"],
+        missing_keywords=result["missing_keywords"],
+        ai_summary=result["summary"]
+    )
+    db.add(analysis)
+    await db.commit()
+
+    return AnalyzeResponse(
+        score=result["score"],
+        matched_keywords=result["matched_keywords"],
+        missing_keywords=result["missing_keywords"],
+        summary=result["summary"]
     )

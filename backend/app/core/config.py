@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     ADZUNA_APP_ID: str = ""
     ADZUNA_APP_KEY: str = ""
     SECRET_KEY: str
+    OLLAMA_MODEL: str = "llama3.1"
 
     class Config:
         env_file = ".env"
