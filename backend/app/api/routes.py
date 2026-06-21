@@ -1,8 +1,14 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.parser import parse_resume
-from app.services.ai_service import analyze_resume_vs_jd
-from app.schemas.resume import ResumeUploadResponse, AnalyzeRequest, AnalyzeResponse
+from app.services.ai_service import analyze_resume_vs_jd, improve_resume_bullets
+from app.schemas.resume import (
+    ResumeUploadResponse,
+    AnalyzeRequest,
+    AnalyzeResponse,
+    ImproveRequest,
+    ImproveResponse,
+)
 from app.core.database import get_db
 from app.models import ResumeAnalysis
 
@@ -63,4 +69,20 @@ async def analyze_resume(payload: AnalyzeRequest, db: AsyncSession = Depends(get
         matched_keywords=result["matched_keywords"],
         missing_keywords=result["missing_keywords"],
         summary=result["summary"]
+    )
+
+
+@router.post("/resume/improve", response_model=ImproveResponse)
+async def improve_resume(payload: ImproveRequest):
+    if not payload.resume_text.strip():
+        raise HTTPException(status_code=400, detail="Resume text cannot be empty")
+
+    try:
+        result = improve_resume_bullets(payload.resume_text, payload.missing_keywords)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI improvement failed: {str(e)}")
+
+    return ImproveResponse(
+        improved_bullets=result["improved_bullets"],
+        general_tips=result["general_tips"]
     )

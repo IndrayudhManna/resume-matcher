@@ -18,3 +18,18 @@ class AnalyzeResponse(BaseModel):
     matched_keywords: List[str]
     missing_keywords: List[str]
     summary: str
+
+
+class ImproveRequest(BaseModel):
+    resume_text: str
+    missing_keywords: List[str]
+
+
+class ImprovedBullet(BaseModel):
+    original: str
+    improved: str
+
+
+class ImproveResponse(BaseModel):
+    improved_bullets: List[ImprovedBullet]
+    general_tips: List[str]

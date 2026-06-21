@@ -44,3 +44,35 @@ Return ONLY a valid JSON object with this exact structure, no extra text before 
         "missing_keywords": result.get("missing_keywords", []),
         "summary": result.get("summary", "")
     }
+
+
+def improve_resume_bullets(resume_text: str, missing_keywords: list) -> dict:
+    keywords_str = ", ".join(missing_keywords) if missing_keywords else "general improvements"
+
+    prompt = f"""You are a professional resume writer. Improve this resume by suggesting 3-5 rewritten bullet points 
+that naturally incorporate these missing keywords where relevant: {keywords_str}
+
+ORIGINAL RESUME:
+{resume_text}
+
+Return ONLY a valid JSON object with this exact structure, no extra text before or after:
+{{
+  "improved_bullets": [
+    {{"original": "<original bullet or section it relates to>", "improved": "<rewritten version with keywords naturally included>"}}
+  ],
+  "general_tips": ["<tip 1>", "<tip 2>", "<tip 3>"]
+}}"""
+
+    response = ollama.generate(
+        model=settings.OLLAMA_MODEL,
+        prompt=prompt,
+        options={"temperature": 0.3}
+    )
+
+    raw_output = response["response"]
+    result = _extract_json(raw_output)
+
+    return {
+        "improved_bullets": result.get("improved_bullets", []),
+        "general_tips": result.get("general_tips", [])
+    }
