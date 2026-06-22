@@ -1,5 +1,5 @@
 import api from './client'
-import type { UploadResponse, AnalyzeResponse, ImproveResponse } from './types'
+import type { UploadResponse, AnalyzeResponse, ImproveResponse, JobSearchResponse } from './types'
 
 export async function uploadResume(file: File): Promise<UploadResponse> {
   const formData = new FormData()
@@ -28,6 +28,19 @@ export async function improveResume(
 ): Promise<ImproveResponse> {
   const response = await api.post<ImproveResponse>('/resume/improve', {
     resume_text: resumeText,
+    missing_keywords: missingKeywords,
+  })
+  return response.data
+}
+
+export async function searchJobs(
+  resumeText: string,
+  matchedKeywords: string[],
+  missingKeywords: string[]
+): Promise<JobSearchResponse> {
+  const response = await api.post<JobSearchResponse>('/jobs/search', {
+    resume_text: resumeText,
+    matched_keywords: matchedKeywords,
     missing_keywords: missingKeywords,
   })
   return response.data

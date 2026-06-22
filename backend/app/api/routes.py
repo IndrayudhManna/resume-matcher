@@ -2,12 +2,15 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.parser import parse_resume
 from app.services.ai_service import analyze_resume_vs_jd, improve_resume_bullets
+from app.services.job_service import extract_skills_from_resume, fetch_jobs, rank_jobs
 from app.schemas.resume import (
     ResumeUploadResponse,
     AnalyzeRequest,
     AnalyzeResponse,
     ImproveRequest,
     ImproveResponse,
+    JobSearchRequest,
+    JobSearchResponse,
 )
 from app.core.database import get_db
 from app.models import ResumeAnalysis
@@ -85,4 +88,27 @@ async def improve_resume(payload: ImproveRequest):
     return ImproveResponse(
         improved_bullets=result["improved_bullets"],
         general_tips=result["general_tips"]
+    )
+
+
+@router.post("/jobs/search", response_model=JobSearchResponse)
+async def search_jobs(payload: JobSearchRequest):
+    if not payload.resume_text.strip():
+        raise HTTPException(status_code=400, detail="Resume text cannot be empty")
+
+    skills = extract_skills_from_resume(payload.resume_text)
+
+    if not skills:
+        raise HTTPException(status_code=400, detail="Could not extract skills from resume")
+
+    raw_jobs = fetch_jobs(skills)
+
+    if not raw_jobs:
+        return JobSearchResponse(jobs=[], total_found=0)
+
+    ranked = rank_jobs(raw_jobs, payload.matched_keywords, payload.missing_keywords)
+
+    return JobSearchResponse(
+        jobs=ranked,
+        total_found=len(ranked)
     )

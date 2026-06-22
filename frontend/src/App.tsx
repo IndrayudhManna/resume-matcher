@@ -4,22 +4,26 @@ import ScoreCard from './components/ScoreCard'
 import KeywordList from './components/KeywordList'
 import SummaryCard from './components/SummaryCard'
 import ImprovedBullets from './components/ImprovedBullets'
-import { uploadResume, analyzeResume, improveResume } from './api/resume'
-import type { AnalyzeResponse, ImproveResponse } from './api/types'
+import JobCard from './components/JobCard'
+import { uploadResume, analyzeResume, improveResume, searchJobs } from './api/resume'
+import type { AnalyzeResponse, ImproveResponse, JobMatch } from './api/types'
 
 function App() {
   const [resumeText, setResumeText] = useState('')
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null)
   const [improvement, setImprovement] = useState<ImproveResponse | null>(null)
+  const [jobs, setJobs] = useState<JobMatch[]>([])
 
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [isImproving, setIsImproving] = useState(false)
+  const [isSearchingJobs, setIsSearchingJobs] = useState(false)
   const [error, setError] = useState('')
 
   const handleAnalyze = async (file: File, jobDescription: string) => {
     setError('')
     setAnalysis(null)
     setImprovement(null)
+    setJobs([])
     setIsAnalyzing(true)
 
     try {
@@ -55,6 +59,26 @@ function App() {
     }
   }
 
+  const handleSearchJobs = async () => {
+    if (!analysis || !resumeText) return
+    setIsSearchingJobs(true)
+    setError('')
+
+    try {
+      const result = await searchJobs(
+        resumeText,
+        analysis.matched_keywords,
+        analysis.missing_keywords
+      )
+      setJobs(result.jobs)
+    } catch (err) {
+      console.error(err)
+      setError('Failed to fetch jobs. Please try again.')
+    } finally {
+      setIsSearchingJobs(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-4xl mx-auto px-4 py-12">
@@ -87,23 +111,44 @@ function App() {
               missing={analysis.missing_keywords}
             />
 
-            {!improvement && (
+            <div className="grid md:grid-cols-2 gap-4">
+              {!improvement && (
+                <button
+                  onClick={handleImprove}
+                  disabled={isImproving}
+                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                >
+                  {isImproving ? 'Generating improvements...' : 'Improve My Resume'}
+                </button>
+              )}
+
               <button
-                onClick={handleImprove}
-                disabled={isImproving}
-                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                onClick={handleSearchJobs}
+                disabled={isSearchingJobs}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
               >
-                {isImproving
-                  ? 'Generating improvements... this can take a minute'
-                  : 'Improve My Resume'}
+                {isSearchingJobs ? 'Searching jobs...' : 'Find Matching Jobs'}
               </button>
-            )}
+            </div>
 
             {improvement && (
               <ImprovedBullets
                 bullets={improvement.improved_bullets}
                 tips={improvement.general_tips}
               />
+            )}
+
+            {jobs.length > 0 && (
+              <div>
+                <h2 className="text-lg font-semibold text-white mb-4">
+                  Matching Jobs ({jobs.length})
+                </h2>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {jobs.map((job, i) => (
+                    <JobCard key={i} job={job} rank={i + 1} />
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
