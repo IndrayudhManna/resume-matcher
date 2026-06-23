@@ -4,7 +4,18 @@ from app.core.config import settings
 
 DATABASE_URL = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+# Remove sslmode from URL and handle it separately for asyncpg
+if "sslmode=require" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("?sslmode=require", "").replace("&sslmode=require", "")
+    connect_args = {"ssl": True}
+else:
+    connect_args = {}
+
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=True,
+    connect_args=connect_args
+)
 
 AsyncSessionLocal = sessionmaker(
     bind=engine,
