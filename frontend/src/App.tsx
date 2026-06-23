@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import Navbar from './components/Navbar'
+import Footer from './components/Footer'
+import Spinner from './components/Spinner'
 import UploadForm from './components/UploadForm'
 import ScoreCard from './components/ScoreCard'
 import KeywordList from './components/KeywordList'
@@ -29,15 +32,11 @@ function App() {
     try {
       const uploadResult = await uploadResume(file)
       setResumeText(uploadResult.extracted_text)
-
-      const analyzeResult = await analyzeResume(
-        uploadResult.extracted_text,
-        jobDescription
-      )
+      const analyzeResult = await analyzeResume(uploadResult.extracted_text, jobDescription)
       setAnalysis(analyzeResult)
     } catch (err) {
       console.error(err)
-      setError('Something went wrong. Please check the backend is running and try again.')
+      setError('Analysis failed. Please check the backend is running and try again.')
     } finally {
       setIsAnalyzing(false)
     }
@@ -65,12 +64,11 @@ function App() {
     setError('')
 
     try {
-      const result = await searchJobs(
-        resumeText,
-        analysis.matched_keywords,
-        analysis.missing_keywords
-      )
+      const result = await searchJobs(resumeText, analysis.matched_keywords, analysis.missing_keywords)
       setJobs(result.jobs)
+      if (result.jobs.length === 0) {
+        setError('No matching jobs found. Try again later.')
+      }
     } catch (err) {
       console.error(err)
       setError('Failed to fetch jobs. Please try again.')
@@ -80,79 +78,97 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-purple-400 mb-3">
-            AI Resume Matcher
-          </h1>
-          <p className="text-gray-400 text-lg">
-            Upload your resume. Get your ATS score. Land the job.
-          </p>
-        </div>
+    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+      <Navbar />
 
-        <UploadForm onSubmit={handleAnalyze} isLoading={isAnalyzing} />
-
-        {error && (
-          <div className="max-w-2xl mx-auto mt-6 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-4 rounded-lg">
-            {error}
+      <main className="flex-1">
+        <div className="max-w-4xl mx-auto px-4 py-12">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-purple-400 mb-3">
+              Match Your Resume to Any Job
+            </h1>
+            <p className="text-gray-400 text-lg max-w-xl mx-auto">
+              Upload your resume and a job description. Get an ATS score, keyword gaps, AI-powered improvements, and matching job listings — instantly.
+            </p>
           </div>
-        )}
 
-        {analysis && (
-          <div className="mt-12 space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <ScoreCard score={analysis.score} />
-              <SummaryCard summary={analysis.summary} />
+          <UploadForm onSubmit={handleAnalyze} isLoading={isAnalyzing} />
+
+          {isAnalyzing && (
+            <Spinner message="Analyzing your resume with AI — this takes 1-2 minutes..." />
+          )}
+
+          {error && (
+            <div className="max-w-2xl mx-auto mt-6 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-4 rounded-lg">
+              {error}
             </div>
+          )}
 
-            <KeywordList
-              matched={analysis.matched_keywords}
-              missing={analysis.missing_keywords}
-            />
+          {analysis && !isAnalyzing && (
+            <div className="mt-12 space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <ScoreCard score={analysis.score} />
+                <SummaryCard summary={analysis.summary} />
+              </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {!improvement && (
+              <KeywordList
+                matched={analysis.matched_keywords}
+                missing={analysis.missing_keywords}
+              />
+
+              <div className="grid md:grid-cols-2 gap-4">
+                {!improvement && (
+                  <button
+                    onClick={handleImprove}
+                    disabled={isImproving}
+                    className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                  >
+                    {isImproving ? 'Generating...' : 'Improve My Resume'}
+                  </button>
+                )}
+
                 <button
-                  onClick={handleImprove}
-                  disabled={isImproving}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                  onClick={handleSearchJobs}
+                  disabled={isSearchingJobs}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
                 >
-                  {isImproving ? 'Generating improvements...' : 'Improve My Resume'}
+                  {isSearchingJobs ? 'Searching jobs...' : 'Find Matching Jobs'}
                 </button>
+              </div>
+
+              {isImproving && (
+                <Spinner message="Rewriting your resume bullets with AI..." />
               )}
 
-              <button
-                onClick={handleSearchJobs}
-                disabled={isSearchingJobs}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 text-white font-semibold py-3 rounded-lg transition-colors"
-              >
-                {isSearchingJobs ? 'Searching jobs...' : 'Find Matching Jobs'}
-              </button>
-            </div>
+              {isSearchingJobs && (
+                <Spinner message="Fetching matching jobs from Adzuna..." />
+              )}
 
-            {improvement && (
-              <ImprovedBullets
-                bullets={improvement.improved_bullets}
-                tips={improvement.general_tips}
-              />
-            )}
+              {improvement && (
+                <ImprovedBullets
+                  bullets={improvement.improved_bullets}
+                  tips={improvement.general_tips}
+                />
+              )}
 
-            {jobs.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-white mb-4">
-                  Matching Jobs ({jobs.length})
-                </h2>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {jobs.map((job, i) => (
-                    <JobCard key={i} job={job} rank={i + 1} />
-                  ))}
+              {jobs.length > 0 && (
+                <div>
+                  <h2 className="text-lg font-semibold text-white mb-4">
+                    Matching Jobs ({jobs.length})
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {jobs.map((job, i) => (
+                      <JobCard key={i} job={job} rank={i + 1} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <Footer />
     </div>
   )
 }

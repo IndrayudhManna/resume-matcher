@@ -63,16 +63,17 @@ def rank_jobs(jobs: list[dict], matched_keywords: list[str], missing_keywords: l
         match_count = sum(1 for kw in all_keywords if kw in title or kw in description)
         match_score = min(round((match_count / max(len(all_keywords), 1)) * 100), 99)
 
-        ranked.append({
-            "title": job.get("title", "Unknown"),
-            "company": company,
-            "location": location,
-            "match_score": match_score,
-            "url": url,
-            "salary_min": salary_min,
-            "salary_max": salary_max,
-            "description": job.get("description", "")[:300] + "..."
-        })
+        if match_score > 0:
+            ranked.append({
+                "title": job.get("title", "Unknown"),
+                "company": company,
+                "location": location,
+                "match_score": match_score,
+                "url": url,
+                "salary_min": salary_min,
+                "salary_max": salary_max,
+                "description": job.get("description", "")[:300] + "..."
+            })
 
     ranked.sort(key=lambda x: x["match_score"], reverse=True)
     return ranked
