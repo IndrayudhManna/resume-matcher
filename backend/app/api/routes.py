@@ -1,3 +1,6 @@
+import hashlib
+import json
+import redis
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.parser import parse_resume
@@ -13,9 +16,17 @@ from app.schemas.resume import (
     JobSearchResponse,
 )
 from app.core.database import get_db
+from app.core.config import settings
 from app.models import ResumeAnalysis
 
 router = APIRouter()
+
+redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+
+
+def make_cache_key(resume_text: str, job_description: str) -> str:
+    combined = f"{resume_text.strip()}{job_description.strip()}"
+    return "analysis:" + hashlib.md5(combined.encode()).hexdigest()
 
 
 @router.get("/health")
@@ -50,6 +61,15 @@ async def analyze_resume(payload: AnalyzeRequest, db: AsyncSession = Depends(get
     if not payload.resume_text.strip() or not payload.job_description.strip():
         raise HTTPException(status_code=400, detail="Resume text and job description cannot be empty")
 
+    cache_key = make_cache_key(payload.resume_text, payload.job_description)
+
+    try:
+        cached = redis_client.get(cache_key)
+        if cached:
+            return AnalyzeResponse(**json.loads(cached))
+    except Exception:
+        pass
+
     try:
         result = analyze_resume_vs_jd(payload.resume_text, payload.job_description)
     except Exception as e:
@@ -66,6 +86,11 @@ async def analyze_resume(payload: AnalyzeRequest, db: AsyncSession = Depends(get
     )
     db.add(analysis)
     await db.commit()
+
+    try:
+        redis_client.setex(cache_key, 3600, json.dumps(result))
+    except Exception:
+        pass
 
     return AnalyzeResponse(
         score=result["score"],

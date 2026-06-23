@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     ADZUNA_APP_KEY: str = ""
     SECRET_KEY: str
     OLLAMA_MODEL: str = "llama3.1"
+    GROQ_API_KEY: str = ""
+    USE_GROQ: bool = True
 
     class Config:
         env_file = ".env"
