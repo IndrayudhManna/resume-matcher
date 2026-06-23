@@ -2,11 +2,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://resume-matcher-backend.onrender.com/api/:path*"
+      "destination": "https://resume-matcher-backend-qz09.onrender.com/api/:path*"
     },
     {
       "source": "/jobs/:path*",
-      "destination": "https://resume-matcher-backend.onrender.com/jobs/:path*"
+      "destination": "https://resume-matcher-backend-qz09.onrender.com/jobs/:path*"
     }
   ]
 }
