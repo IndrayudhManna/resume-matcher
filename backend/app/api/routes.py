@@ -67,30 +67,36 @@ async def analyze_resume(payload: AnalyzeRequest, db: AsyncSession = Depends(get
         cached = redis_client.get(cache_key)
         if cached:
             return AnalyzeResponse(**json.loads(cached))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Redis cache error: {e}")
 
     try:
         result = analyze_resume_vs_jd(payload.resume_text, payload.job_description)
     except Exception as e:
+        print(f"AI SERVICE ERROR: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
 
-    analysis = ResumeAnalysis(
-        resume_filename="uploaded_resume",
-        resume_text=payload.resume_text,
-        job_description=payload.job_description,
-        match_score=result["score"],
-        matched_keywords=result["matched_keywords"],
-        missing_keywords=result["missing_keywords"],
-        ai_summary=result["summary"]
-    )
-    db.add(analysis)
-    await db.commit()
+    try:
+        analysis = ResumeAnalysis(
+            resume_filename="uploaded_resume",
+            resume_text=payload.resume_text,
+            job_description=payload.job_description,
+            match_score=result["score"],
+            matched_keywords=result["matched_keywords"],
+            missing_keywords=result["missing_keywords"],
+            ai_summary=result["summary"]
+        )
+        db.add(analysis)
+        await db.commit()
+    except Exception as e:
+        print(f"DATABASE ERROR: {type(e).__name__}: {e}")
 
     try:
         redis_client.setex(cache_key, 3600, json.dumps(result))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Redis save error: {e}")
 
     return AnalyzeResponse(
         score=result["score"],
