@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Spinner from './components/Spinner'
@@ -22,6 +22,17 @@ function App() {
   const [isSearchingJobs, setIsSearchingJobs] = useState(false)
   const [error, setError] = useState('')
 
+  // Keep Render backend alive — ping every 10 minutes
+  useEffect(() => {
+    const keepAlive = () => {
+      fetch('https://resume-matcher-backend-qz09.onrender.com/')
+        .catch(() => {})
+    }
+    keepAlive()
+    const interval = setInterval(keepAlive, 10 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   const handleAnalyze = async (file: File, jobDescription: string) => {
     setError('')
     setAnalysis(null)
@@ -29,14 +40,22 @@ function App() {
     setJobs([])
     setIsAnalyzing(true)
 
-    try {
+    const attempt = async () => {
       const uploadResult = await uploadResume(file)
       setResumeText(uploadResult.extracted_text)
       const analyzeResult = await analyzeResume(uploadResult.extracted_text, jobDescription)
       setAnalysis(analyzeResult)
-    } catch (err) {
-      console.error(err)
-      setError('Analysis failed. Please check the backend is running and try again.')
+    }
+
+    try {
+      await attempt()
+    } catch (firstError) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        await attempt()
+      } catch (secondError) {
+        setError('Analysis failed. The server may be waking up — please wait 30 seconds and try again.')
+      }
     } finally {
       setIsAnalyzing(false)
     }
@@ -51,7 +70,6 @@ function App() {
       const result = await improveResume(resumeText, analysis.missing_keywords)
       setImprovement(result)
     } catch (err) {
-      console.error(err)
       setError('Failed to generate improvements. Please try again.')
     } finally {
       setIsImproving(false)
@@ -70,7 +88,6 @@ function App() {
         setError('No matching jobs found. Try again later.')
       }
     } catch (err) {
-      console.error(err)
       setError('Failed to fetch jobs. Please try again.')
     } finally {
       setIsSearchingJobs(false)
@@ -95,7 +112,7 @@ function App() {
           <UploadForm onSubmit={handleAnalyze} isLoading={isAnalyzing} />
 
           {isAnalyzing && (
-            <Spinner message="Analyzing your resume with AI — this takes 1-2 minutes..." />
+            <Spinner message="Analyzing your resume with AI — this takes a few seconds..." />
           )}
 
           {error && (
