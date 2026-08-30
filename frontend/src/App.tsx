@@ -33,33 +33,38 @@ function App() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleAnalyze = async (file: File, jobDescription: string) => {
-    setError('')
-    setAnalysis(null)
-    setImprovement(null)
-    setJobs([])
-    setIsAnalyzing(true)
+const handleAnalyze = async (file: File, jobDescription: string) => {
+  setError('')
+  setAnalysis(null)
+  setImprovement(null)
+  setJobs([])
+  setIsAnalyzing(true)
 
-    const attempt = async () => {
-      const uploadResult = await uploadResume(file)
-      setResumeText(uploadResult.extracted_text)
-      const analyzeResult = await analyzeResume(uploadResult.extracted_text, jobDescription)
-      setAnalysis(analyzeResult)
-    }
-
-    try {
-      await attempt()
-    } catch (firstError) {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 5000))
-        await attempt()
-      } catch (secondError) {
-        setError('Analysis failed. The server may be waking up — please wait 30 seconds and try again.')
-      }
-    } finally {
-      setIsAnalyzing(false)
-    }
+  const attempt = async () => {
+    const uploadResult = await uploadResume(file)
+    setResumeText(uploadResult.extracted_text)
+    const analyzeResult = await analyzeResume(uploadResult.extracted_text, jobDescription)
+    setAnalysis(analyzeResult)
   }
+
+  try {
+    await attempt()
+  } catch (_) {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 15000))
+      await attempt()
+    } catch (_) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 15000))
+        await attempt()
+      } catch (_) {
+        setError('Analysis failed. Please try again in a moment.')
+      }
+    }
+  } finally {
+    setIsAnalyzing(false)
+  }
+}
 
   const handleImprove = async () => {
     if (!analysis || !resumeText) return
