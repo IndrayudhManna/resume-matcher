@@ -15,7 +15,7 @@ def _call_ai(prompt: str, temperature: float = 0.0) -> str:
         from groq import Groq
         client = Groq(api_key=settings.GROQ_API_KEY)
         response = client.chat.completions.create(
-            model="llama3-8b-8192",
+            model="openai/gpt-oss-20b",
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
             max_tokens=1000
